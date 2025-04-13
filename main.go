@@ -1,6 +1,9 @@
 package main
 
 import (
+	"context"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"log"
 	"net/http"
 	"os"
@@ -19,7 +22,9 @@ type apiConfig struct {
 	s3Bucket         string
 	s3Region         string
 	s3CfDistribution string
+	cloudfrontDomain string
 	port             string
+	s3Client         *s3.Client
 }
 
 type thumbnail struct {
@@ -75,6 +80,16 @@ func main() {
 		log.Fatal("S3_CF_DISTRO environment variable is not set")
 	}
 
+	cfDomain := os.Getenv("CF_DOMAIN_NAME")
+	if cfDomain == "" {
+		log.Fatal("CF_DOMAIN_NAME environment variable is not set")
+	}
+
+	awsCfg, err := config.LoadDefaultConfig(context.Background(), config.WithRegion(s3Region))
+	if err != nil {
+		log.Fatalf("Couldn't load SDK config: %v", err)
+	}
+	awsClient := s3.NewFromConfig(awsCfg)
 	port := os.Getenv("PORT")
 	if port == "" {
 		log.Fatal("PORT environment variable is not set")
@@ -90,6 +105,8 @@ func main() {
 		s3Region:         s3Region,
 		s3CfDistribution: s3CfDistribution,
 		port:             port,
+		s3Client:         awsClient,
+		cloudfrontDomain: cfDomain,
 	}
 
 	err = cfg.ensureAssetsDir()
